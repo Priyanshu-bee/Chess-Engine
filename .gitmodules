@@ -1,0 +1,3 @@
+[submodule "tools/cutechess-src"]
+	path = tools/cutechess-src
+	url = https://github.com/cutechess/cutechess.git

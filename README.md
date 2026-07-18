@@ -2,7 +2,7 @@
 An efficient 64-bit Java chess engine compliant with the **UCI (Universal Chess Interface)** protocol.
 
 * **Engine Name:** `BitChess`
-* **Author:** `artificialmagic`
+* **Author:** `ArtificialMagic`
 
 ---
 

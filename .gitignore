@@ -1,5 +1,5 @@
 bin/**/*.class
 *.class
 .DS_Store
-tools/
+tools/cutechess-src/build/
 
