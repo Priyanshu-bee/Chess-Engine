@@ -98,13 +98,17 @@ def patch_cutechess_gui():
 	QSettings s;
 	s.beginGroup("games");
 
-	// Load White time control
+	// Load White time control (default to 40 moves in 5 minutes)
 	TimeControl whiteTc;
+	whiteTc.setMovesPerTc(40);
+	whiteTc.setTimePerTc(300000);
 	whiteTc.readSettings(&s);
 	game->setTimeControl(whiteTc, Chess::Side::White);
 
-	// Load Black time control
+	// Load Black time control (default to 40 moves in 5 minutes)
 	TimeControl blackTc;
+	blackTc.setMovesPerTc(40);
+	blackTc.setTimePerTc(300000);
 	s.beginGroup("second_time_control");
 	blackTc.readSettings(&s);
 	s.endGroup(); // "second_time_control"
