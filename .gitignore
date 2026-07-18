@@ -1,0 +1,5 @@
+bin/**/*.class
+*.class
+.DS_Store
+tools/
+
