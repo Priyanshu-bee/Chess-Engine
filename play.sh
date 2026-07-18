@@ -56,21 +56,90 @@ if [ ! -f "tools/cutechess-src/CMakeLists.txt" ]; then
     fi
 fi
 
-# Patch Cute Chess dialog defaults if not already done
-if [ -f "tools/cutechess-src/projects/gui/src/newgamedlg.cpp" ]; then
-    if ! grep -q "ui->m_blackPlayerCpuRadio->setChecked" "tools/cutechess-src/projects/gui/src/newgamedlg.cpp"; then
-        echo "Patching Cute Chess GUI defaults to Human vs Engine..."
+# Patch Cute Chess dialog defaults and startup game configuration if not already done
+if [ -f "tools/cutechess-src/projects/gui/src/newgamedlg.cpp" ] && [ -f "tools/cutechess-src/projects/gui/src/cutechessapp.cpp" ]; then
+    if ! grep -q "ui->m_blackPlayerCpuRadio->setChecked" "tools/cutechess-src/projects/gui/src/newgamedlg.cpp" || ! grep -q "BitChess" "tools/cutechess-src/projects/gui/src/cutechessapp.cpp"; then
+        echo "Patching Cute Chess GUI defaults (New Game & Startup Game)..."
         if command -v python3 &> /dev/null; then
             python3 -c "
 import os
-cpp_file = 'tools/cutechess-src/projects/gui/src/newgamedlg.cpp'
-with open(cpp_file, 'r') as f:
-    content = f.read()
-target = 'ui->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(ok);\n\t});\n}'
-replacement = 'ui->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(ok);\n\t});\n\n\tui->m_whitePlayerHumanRadio->setChecked(true);\n\tui->m_blackPlayerCpuRadio->setChecked(true);\n}'
-if target in content:
-    with open(cpp_file, 'w') as f:
-        f.write(content.replace(target, replacement))
+
+# 1. Patch newgamedlg.cpp (dialog settings)
+cpp_file_1 = 'tools/cutechess-src/projects/gui/src/newgamedlg.cpp'
+if os.path.exists(cpp_file_1):
+    with open(cpp_file_1, 'r') as f:
+        content = f.read()
+    target = 'ui->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(ok);\n\t});\n}'
+    replacement = 'ui->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(ok);\n\t});\n\n\tui->m_whitePlayerHumanRadio->setChecked(true);\n\tui->m_blackPlayerCpuRadio->setChecked(true);\n}'
+    if target in content and 'ui->m_blackPlayerCpuRadio->setChecked' not in content:
+        with open(cpp_file_1, 'w') as f:
+            f.write(content.replace(target, replacement))
+
+# 2. Patch cutechessapp.cpp (startup game)
+cpp_file_2 = 'tools/cutechess-src/projects/gui/src/cutechessapp.cpp'
+if os.path.exists(cpp_file_2):
+    with open(cpp_file_2, 'r') as f:
+        content = f.read()
+    
+    target_inc = '#include <humanbuilder.h>'
+    replacement_inc = '#include <humanbuilder.h>\n#include <enginebuilder.h>'
+    if target_inc in content and '#include <enginebuilder.h>' not in content:
+        content = content.replace(target_inc, replacement_inc)
+    
+    replacement_func = '''void CuteChessApplication::newDefaultGame()
+{
+	// default game is a human versus human game using standard variant and
+	// infinite time control
+	ChessGame* game = new ChessGame(Chess::BoardFactory::create(\"standard\"),
+		new PgnGame());
+
+	game->setTimeControl(TimeControl(\"inf\"));
+	game->pause();
+
+	connect(game, SIGNAL(started(ChessGame*)),
+		this, SLOT(newGameWindow(ChessGame*)));
+
+	PlayerBuilder* whiteBuilder = new HumanBuilder(userName());
+	PlayerBuilder* blackBuilder = nullptr;
+
+	EngineManager* manager = engineManager();
+	if (manager && manager->engineCount() > 0)
+	{
+		EngineConfiguration config;
+		bool found = false;
+		for (int i = 0; i < manager->engineCount(); ++i)
+		{
+			if (manager->engineAt(i).name() == \"BitChess\")
+			{
+				config = manager->engineAt(i);
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			config = manager->engineAt(0);
+
+		blackBuilder = new EngineBuilder(config);
+	}
+	else
+	{
+		blackBuilder = new HumanBuilder(userName());
+	}
+
+	gameManager()->newGame(game, whiteBuilder, blackBuilder);
+}'''
+    
+    old_func_start = 'void CuteChessApplication::newDefaultGame()'
+    old_func_end = 'new HumanBuilder(userName()));\n}'
+    start_idx = content.find(old_func_start)
+    if start_idx != -1:
+        end_idx = content.find(old_func_end, start_idx)
+        if end_idx != -1:
+            end_idx += len(old_func_end)
+            content = content[:start_idx] + replacement_func + content[end_idx:]
+            
+    with open(cpp_file_2, 'w') as f:
+        f.write(content)
 "
             # Force rebuild by deleting the binary
             rm -f tools/cutechess-src/build/cutechess
