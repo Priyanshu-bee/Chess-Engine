@@ -15,7 +15,8 @@ def configure_engine():
         'protocol': 'uci',
         'stderrFile': '',
         'timeoutScaleFactor': 1,
-        'workingDirectory': os.getcwd()
+        'workingDirectory': os.getcwd(),
+        'ponder': True
     }
 
     engines = []
@@ -33,6 +34,7 @@ def configure_engine():
         if engine.get('name') == 'BitChess':
             engine['command'] = new_engine['command']
             engine['workingDirectory'] = new_engine['workingDirectory']
+            engine['ponder'] = True
             exists = True
             break
 
@@ -97,6 +99,7 @@ def patch_cutechess_gui():
 
 	QSettings s;
 	s.beginGroup("games");
+	s.setValue("pondering", true);
 
 	// Load White time control (default to 40 moves in 5 minutes)
 	TimeControl whiteTc;
@@ -141,6 +144,7 @@ def patch_cutechess_gui():
 		if (!found)
 			config = manager->engineAt(0);
 
+		config.setPondering(true);
 		blackBuilder = new EngineBuilder(config);
 	}
 	else
