@@ -56,6 +56,28 @@ if [ ! -f "tools/cutechess-src/CMakeLists.txt" ]; then
     fi
 fi
 
+# Patch Cute Chess dialog defaults if not already done
+if [ -f "tools/cutechess-src/projects/gui/src/newgamedlg.cpp" ]; then
+    if ! grep -q "ui->m_blackPlayerCpuRadio->setChecked" "tools/cutechess-src/projects/gui/src/newgamedlg.cpp"; then
+        echo "Patching Cute Chess GUI defaults to Human vs Engine..."
+        if command -v python3 &> /dev/null; then
+            python3 -c "
+import os
+cpp_file = 'tools/cutechess-src/projects/gui/src/newgamedlg.cpp'
+with open(cpp_file, 'r') as f:
+    content = f.read()
+target = 'ui->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(ok);\n\t});\n}'
+replacement = 'ui->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(ok);\n\t});\n\n\tui->m_whitePlayerHumanRadio->setChecked(true);\n\tui->m_blackPlayerCpuRadio->setChecked(true);\n}'
+if target in content:
+    with open(cpp_file, 'w') as f:
+        f.write(content.replace(target, replacement))
+"
+            # Force rebuild by deleting the binary
+            rm -f tools/cutechess-src/build/cutechess
+        fi
+    fi
+fi
+
 if [ ! -f "tools/cutechess-src/build/cutechess" ]; then
     echo "Cute Chess GUI executable not found. Compiling Cute Chess from source..."
     cmake -S tools/cutechess-src -B tools/cutechess-src/build
