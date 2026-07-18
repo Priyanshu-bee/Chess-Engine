@@ -6,35 +6,13 @@ An efficient 64-bit Java chess engine compliant with the **UCI (Universal Chess 
 
 ---
 
-## 📋 Prerequisites
+## 🚀 Quick Start: How to Play
 
-To run this project, you need the following dependencies installed on your system:
-* **Java Development Kit (JDK 8 or higher)** to run and compile the Java engine.
-* **CMake & Qt (5 or 6)** if you need to build the Cute Chess GUI from the git submodule.
-
-On macOS, the `./play.sh` script will automatically check for these dependencies and offer to install them via **Homebrew** if they are missing. You can also install them manually:
+Open your terminal in this directory and run the launcher script:
 ```bash
-brew install openjdk cmake qt
+./play.sh
 ```
-
----
-
-## 🚀 How to Launch and Play
-
-To build the code and start playing against the engine immediately:
-
-1. Open your terminal in this directory.
-2. Run the master launcher script:
-   ```bash
-   ./play.sh
-   ```
-
-### What `play.sh` does automatically:
-* **Checks Prerequisites:** Scans for Java, CMake, and Qt, and prompts to install them via Homebrew if any are missing.
-* **Manages GUI Submodule:** Automatically clones the Cute Chess submodule and builds the graphical interface if it hasn't been built yet.
-* **Configures Engine Profile:** Programmatically registers the `BitChess` profile inside Cute Chess's local settings (`~/.config/cutechess.com/engines.json`), dynamically matching your current repository paths.
-* **Compiles Java Code:** Recompiles all engine packages from `src/` to `bin/`.
-* **Starts the GUI:** Opens Cute Chess. You can immediately click **Game -> New** and select **BitChess** as your opponent!
+This is all you need to do! The script will compile your files and open the Cute Chess GUI immediately. Select **Game -> New** and pick **BitChess** to start playing.
 
 ---
 
@@ -44,3 +22,21 @@ To build the code and start playing against the engine immediately:
 * **Alpha-Beta Search:** Leverages Minimax with Alpha-Beta pruning to discard unfavorable lines of play.
 * **Quiescence Search:** Minimizes the horizon effect by searching all tactical capture sequences to a quiet state before scoring.
 * **Position Evaluation:** Integrates material values with standard Piece-Square Tables (PST) to assess positional quality (e.g., center control, pawn advancement).
+
+---
+
+## 📋 Installation Details & Prerequisites
+
+### What `play.sh` does automatically in the background:
+* **Dependency Scan:** Checks if Java JDK, CMake, or Qt are missing from your macOS system, and prompts you to install them automatically using **Homebrew**.
+* **GUI Submodule Setup:** Automatically clones the Cute Chess GUI Git submodule and compiles it from C++ source code if it hasn't been built yet.
+* **Engine Profile Registration:** Programmatically registers the `BitChess` engine configuration profile inside Cute Chess's local settings (`~/.config/cutechess.com/engines.json`), dynamically matching your local directory paths.
+* **Java Compilation:** Recompiles all Java engine packages from the `src/` directory directly into the `/bin` directory.
+
+### Manual Dependency Installation
+If you prefer to install the system dependencies manually (on macOS via Homebrew):
+```bash
+brew install openjdk cmake qt
+```
+* **Java JDK 8 (or higher)** is required to compile and execute the chess engine.
+* **CMake & Qt (5 or 6)** are required only to build the Cute Chess GUI from the git submodule.
