@@ -5,23 +5,43 @@ cd "$SCRIPT_DIR"
 
 # Automate dependency installation on macOS using Homebrew
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    if command -v brew &> /dev/null; then
-        if ! command -v java &> /dev/null; then
-            echo "Java JDK not found. Installing via Homebrew..."
-            brew install openjdk
+    missing_deps=()
+    if ! command -v java &> /dev/null; then
+        missing_deps+=("Java-JDK")
+    fi
+    if ! command -v cmake &> /dev/null; then
+        missing_deps+=("CMake")
+    fi
+    if ! qmake -v &> /dev/null && ! brew list qt &> /dev/null && ! brew list qt@6 &> /dev/null; then
+        missing_deps+=("Qt")
+    fi
+
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        if command -v brew &> /dev/null; then
+            echo "The following dependencies are missing: ${missing_deps[*]}"
+            read -p "Would you like to install them via Homebrew? (y/n): " confirm
+            if [[ "$confirm" =~ ^[yY]$ ]]; then
+                for dep in "${missing_deps[@]}"; do
+                    if [ "$dep" == "Java-JDK" ]; then
+                        echo "Installing Java JDK..."
+                        brew install openjdk
+                    elif [ "$dep" == "CMake" ]; then
+                        echo "Installing CMake..."
+                        brew install cmake
+                    elif [ "$dep" == "Qt" ]; then
+                        echo "Installing Qt..."
+                        brew install qt
+                    fi
+                done
+            else
+                echo "Skipping dependency installation. Compilation may fail if requirements are missing."
+            fi
+        else
+            echo "Warning: The following dependencies are missing: ${missing_deps[*]}. Homebrew is not installed, so they cannot be auto-installed. Please install them manually."
         fi
-        if ! command -v cmake &> /dev/null; then
-            echo "CMake not found. Installing via Homebrew..."
-            brew install cmake
-        fi
-        if ! brew list qt &> /dev/null && ! brew list qt@6 &> /dev/null; then
-            echo "Qt libraries not found. Installing via Homebrew..."
-            brew install qt
-        fi
-    else
-        echo "Warning: Homebrew is not installed. Please manually install Java, CMake, and Qt."
     fi
 fi
+
 
 # Create bin directory if it doesn't exist
 mkdir -p bin
