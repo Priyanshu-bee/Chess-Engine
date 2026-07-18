@@ -6,6 +6,20 @@ An efficient 64-bit Java chess engine compliant with the **UCI (Universal Chess 
 
 ---
 
+## 📋 Prerequisites
+
+To run this project, you need the following dependencies installed:
+
+1. **Java Development Kit (JDK 8 or higher):** Required to compile and run the Java engine.
+2. **CMake & Qt (5 or 6):** Required only if you need to build the Cute Chess GUI from the submodule.
+
+On macOS, you can install all prerequisites using **Homebrew**:
+```bash
+brew install openjdk cmake qt
+```
+
+---
+
 ## 🚀 How to Launch and Play
 
 To compile any code changes and play against the engine immediately in the GUI:
