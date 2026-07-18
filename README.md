@@ -8,12 +8,11 @@ An efficient 64-bit Java chess engine compliant with the **UCI (Universal Chess 
 
 ## 📋 Prerequisites
 
-To run this project, you need the following dependencies installed:
+To run this project, you need the following dependencies installed on your system:
+* **Java Development Kit (JDK 8 or higher)** to run and compile the Java engine.
+* **CMake & Qt (5 or 6)** if you need to build the Cute Chess GUI from the git submodule.
 
-1. **Java Development Kit (JDK 8 or higher):** Required to compile and run the Java engine.
-2. **CMake & Qt (5 or 6):** Required only if you need to build the Cute Chess GUI from the submodule.
-
-On macOS, you can install all prerequisites using **Homebrew**:
+On macOS, the `./play.sh` script will automatically check for these dependencies and offer to install them via **Homebrew** if they are missing. You can also install them manually:
 ```bash
 brew install openjdk cmake qt
 ```
@@ -22,31 +21,20 @@ brew install openjdk cmake qt
 
 ## 🚀 How to Launch and Play
 
-To compile any code changes and play against the engine immediately in the GUI:
+To build the code and start playing against the engine immediately:
 
 1. Open your terminal in this directory.
-2. Run the play script:
+2. Run the master launcher script:
    ```bash
    ./play.sh
    ```
-This script will automatically:
-* Recompile the latest Java files and store the compiled binaries cleanly in the `bin/` directory.
-* Launch the local compiled **Cute Chess** GUI.
 
----
-
-## ⚙️ Cute Chess GUI Configuration
-
-If you need to configure or verify the engine settings inside the Cute Chess GUI:
-
-1. Close any open matches to unlock settings (**Game** -> **Close**).
-2. Go to **Tools** -> **Settings** -> **Engines**.
-3. If `BitChess` is not configured, select **Add...** (or edit the existing one) with these parameters:
-   * **Name:** `BitChess`
-   * **Protocol:** `UCI`
-   * **Command:** `/Users/priyanshu/CSE/Chess-Engine/bin/MyBot`
-   * **Working Directory:** `/Users/priyanshu/CSE/Chess-Engine`
-4. Click **OK** to save, then select **Game** -> **New** to start playing!
+### What `play.sh` does automatically:
+* **Checks Prerequisites:** Scans for Java, CMake, and Qt, and prompts to install them via Homebrew if any are missing.
+* **Manages GUI Submodule:** Automatically clones the Cute Chess submodule and builds the graphical interface if it hasn't been built yet.
+* **Configures Engine Profile:** Programmatically registers the `BitChess` profile inside Cute Chess's local settings (`~/.config/cutechess.com/engines.json`), dynamically matching your current repository paths.
+* **Compiles Java Code:** Recompiles all engine packages from `src/` to `bin/`.
+* **Starts the GUI:** Opens Cute Chess. You can immediately click **Game -> New** and select **BitChess** as your opponent!
 
 ---
 
