@@ -95,7 +95,23 @@ def patch_cutechess_gui():
 	ChessGame* game = new ChessGame(Chess::BoardFactory::create("standard"),
 		new PgnGame());
 
-	game->setTimeControl(TimeControl("inf"));
+	QSettings s;
+	s.beginGroup("games");
+
+	// Load White time control
+	TimeControl whiteTc;
+	whiteTc.readSettings(&s);
+	game->setTimeControl(whiteTc, Chess::Side::White);
+
+	// Load Black time control
+	TimeControl blackTc;
+	s.beginGroup("second_time_control");
+	blackTc.readSettings(&s);
+	s.endGroup(); // "second_time_control"
+	game->setTimeControl(blackTc, Chess::Side::Black);
+
+	s.endGroup(); // "games"
+
 	game->pause();
 
 	connect(game, SIGNAL(started(ChessGame*)),
