@@ -1,3 +1,11 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-exec /opt/homebrew/opt/openjdk/bin/java -cp "$SCRIPT_DIR" execution.MyBot "$@"
+if [ -x "/opt/homebrew/opt/openjdk/bin/java" ]; then
+    JAVA_CMD="/opt/homebrew/opt/openjdk/bin/java"
+elif /usr/libexec/java_home &> /dev/null; then
+    JAVA_CMD="$(/usr/libexec/java_home)/bin/java"
+else
+    JAVA_CMD="java"
+fi
+
+exec "$JAVA_CMD" -cp "$SCRIPT_DIR" execution.MyBot "$@"

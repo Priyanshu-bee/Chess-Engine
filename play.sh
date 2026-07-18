@@ -6,7 +6,7 @@ cd "$SCRIPT_DIR"
 # Automate dependency installation on macOS using Homebrew
 if [[ "$OSTYPE" == "darwin"* ]]; then
     missing_deps=()
-    if ! command -v java &> /dev/null; then
+    if ! /usr/libexec/java_home &> /dev/null && [ ! -x "/opt/homebrew/opt/openjdk/bin/javac" ]; then
         missing_deps+=("Java-JDK")
     fi
     if ! command -v cmake &> /dev/null; then
@@ -68,7 +68,16 @@ fi
 
 # Recompile all Java source files into the bin directory
 echo "Recompiling BitChess engine..."
-/opt/homebrew/opt/openjdk/bin/javac -d bin src/core/*.java src/brain/*.java src/execution/*.java
+# Find javac command dynamically
+if [ -x "/opt/homebrew/opt/openjdk/bin/javac" ]; then
+    JAVAC_CMD="/opt/homebrew/opt/openjdk/bin/javac"
+elif /usr/libexec/java_home &> /dev/null; then
+    JAVAC_CMD="$(/usr/libexec/java_home)/bin/javac"
+else
+    JAVAC_CMD="javac"
+fi
+
+$JAVAC_CMD -d bin src/core/*.java src/brain/*.java src/execution/*.java
 
 if [ $? -ne 0 ]; then
     echo "Compilation failed! Cannot launch Cute Chess."
