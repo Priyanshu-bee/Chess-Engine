@@ -16,7 +16,8 @@ def configure_engine():
         'stderrFile': '',
         'timeoutScaleFactor': 1,
         'workingDirectory': os.getcwd(),
-        'ponder': True
+        'ponder': True,
+        'whitepov': True
     }
 
     engines = []
@@ -35,6 +36,7 @@ def configure_engine():
             engine['command'] = new_engine['command']
             engine['workingDirectory'] = new_engine['workingDirectory']
             engine['ponder'] = True
+            engine['whitepov'] = True
             exists = True
             break
 

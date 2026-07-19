@@ -159,6 +159,7 @@ public class NegamaxBrain implements Brain {
                 bestScore = currentBestScore;
 
                 long layerTime = System.currentTimeMillis() - layerStart;
+
                 String scoreString;
                 if (Math.abs(bestScore) > 900000) {
                     int plies = INF - Math.abs(bestScore);
