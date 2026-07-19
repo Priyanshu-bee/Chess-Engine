@@ -9,7 +9,7 @@ public class Logger {
 
     public static synchronized void clear() {
         try (FileWriter fw = new FileWriter(LOG_FILE, false)) {
-            // Overwrites to empty
+            fw.write(""); // Overwrites to empty
         } catch (IOException e) {
             // Ignore logging errors
         }

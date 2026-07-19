@@ -2,7 +2,7 @@ package core;
 
 import java.util.*;
 
-public class Board {
+public final class Board {
     // Bitboard array: index maps to PieceType and Color
     // White: 0=PAWN, 1=KNIGHT, 2=BISHOP, 3=ROOK, 4=QUEEN, 5=KING
     // Black: 6=PAWN, 7=KNIGHT, 8=BISHOP, 9=ROOK, 10=QUEEN, 11=KING
@@ -75,7 +75,7 @@ public class Board {
         loadFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     }
 
-    public void loadFen(String fen) {
+    public final void loadFen(String fen) {
         // Clear everything
         Arrays.fill(bitboards, 0L);
         stateHistory.clear();
