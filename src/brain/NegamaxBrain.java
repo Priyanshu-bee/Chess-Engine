@@ -91,6 +91,9 @@ public class NegamaxBrain implements Brain {
     private volatile boolean isStable = true;
 
     private Move bestMove = null;
+    private Move bestPonderMove = null;
+    private Move[][] pvTable;
+    private int[] pvLength;
     private int bestScore = -INF;
     private int targetDepth = 100;
     private int totalNodes = 0;
@@ -103,6 +106,7 @@ public class NegamaxBrain implements Brain {
         this.totalMoves = 0;
         this.isStable = true;
         this.bestMove = null;
+        this.bestPonderMove = null;
         this.bestScore = -INF;
         this.totalNodes = 0;
 
@@ -122,6 +126,11 @@ public class NegamaxBrain implements Brain {
         moves.sort((m1, m2) -> Integer.compare(getMoveValue(m2), getMoveValue(m1)));
         this.totalMoves = moves.size();
 
+        // Initialize PV table
+        int maxSearchDepth = targetDepth + 2;
+        this.pvTable = new Move[maxSearchDepth][maxSearchDepth];
+        this.pvLength = new int[maxSearchDepth];
+
         // Iterative Deepening
         for (int depth = 1; depth <= targetDepth; depth++) {
             this.currentDepth = depth;
@@ -133,14 +142,28 @@ public class NegamaxBrain implements Brain {
             Move currentBestMove = null;
             int currentBestScore = -INF;
 
+            pvLength[0] = 0;
             for (Move move : moves) {
                 board.makeMove(move);
                 int score = -negamax(board, depth - 1, 1, -beta, -alpha);
                 board.unmakeMove(move);
 
+                if (stopSearch) {
+                    break;
+                }
+
                 if (score > currentBestScore) {
                     currentBestScore = score;
                     currentBestMove = move;
+
+                    // Update PV table at ply 0
+                    if (pvTable.length > 0 && pvLength.length > 1) {
+                        pvTable[0][0] = move;
+                        for (int next = 1; next < pvLength[1]; next++) {
+                            pvTable[0][next] = pvTable[1][next];
+                        }
+                        pvLength[0] = pvLength[1];
+                    }
                 }
                 if (score > alpha) {
                     alpha = score;
@@ -156,6 +179,7 @@ public class NegamaxBrain implements Brain {
                     this.isStable = true;
                 }
                 bestMove = currentBestMove;
+                bestPonderMove = (pvLength[0] > 1) ? pvTable[0][1] : null;
                 bestScore = currentBestScore;
 
                 long layerTime = System.currentTimeMillis() - layerStart;
@@ -167,7 +191,14 @@ public class NegamaxBrain implements Brain {
                 } else {
                     scoreString = "cp " + bestScore;
                 }
-                Logger.log("info depth " + depth + " score " + scoreString + " time " + layerTime + " nodes " + totalNodes);
+
+                StringBuilder pvBuilder = new StringBuilder();
+                for (int i = 0; i < pvLength[0]; i++) {
+                    if (pvTable[0][i] != null) {
+                        pvBuilder.append(" ").append(pvTable[0][i].toUciString());
+                    }
+                }
+                Logger.log("info depth " + depth + " score " + scoreString + " time " + layerTime + " nodes " + totalNodes + " pv" + pvBuilder.toString());
             }
         }
 
@@ -177,6 +208,11 @@ public class NegamaxBrain implements Brain {
     @Override
     public Move getBestMove() {
         return bestMove;
+    }
+
+    @Override
+    public Move getPonderMove() {
+        return bestPonderMove;
     }
 
     @Override
@@ -197,6 +233,11 @@ public class NegamaxBrain implements Brain {
     private int negamax(Board board, int depth, int ply, int alpha, int beta) {
         totalNodes++;
         if (board.isDraw()) return 0;
+
+        if (ply < pvLength.length) {
+            pvLength[ply] = ply;
+        }
+
         if (depth == 0) return quiescence(board, alpha, beta);
 
         List<Move> moves = board.getPseudoLegalMoves();
@@ -218,6 +259,13 @@ public class NegamaxBrain implements Brain {
             }
             if (score > alpha) {
                 alpha = score;
+                if (ply < pvTable.length && ply + 1 < pvTable.length) {
+                    pvTable[ply][ply] = move;
+                    for (int next = ply + 1; next < pvLength[ply + 1]; next++) {
+                        pvTable[ply][next] = pvTable[ply + 1][next];
+                    }
+                    pvLength[ply] = pvLength[ply + 1];
+                }
             }
         }
 

@@ -67,7 +67,12 @@ public class SearchSession {
             }
 
             if (best != null) {
-                Logger.log("bestmove " + best.toUciString());
+                Move ponder = brain.getPonderMove();
+                if (ponder != null) {
+                    Logger.log("bestmove " + best.toUciString() + " ponder " + ponder.toUciString());
+                } else {
+                    Logger.log("bestmove " + best.toUciString());
+                }
             }
         });
         thread.setDaemon(true);
