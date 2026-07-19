@@ -16,8 +16,7 @@ def configure_engine():
         'stderrFile': '',
         'timeoutScaleFactor': 1,
         'workingDirectory': os.getcwd(),
-        'ponder': True,
-        'whitepov': True
+        'ponder': True
     }
 
     engines = []
@@ -36,7 +35,6 @@ def configure_engine():
             engine['command'] = new_engine['command']
             engine['workingDirectory'] = new_engine['workingDirectory']
             engine['ponder'] = True
-            engine['whitepov'] = True
             exists = True
             break
 
@@ -50,17 +48,15 @@ def configure_engine():
         print(f"Error: Failed to write to engines.json: {e}")
 
 def patch_cutechess_gui():
-    """Patches Cute Chess GUI defaults and formatting."""
+    """Patches Cute Chess GUI defaults to start matches as Human vs Engine."""
     cpp_file_1 = 'tools/cutechess-src/projects/gui/src/newgamedlg.cpp'
     cpp_file_2 = 'tools/cutechess-src/projects/gui/src/cutechessapp.cpp'
-    cpp_file_3 = 'tools/cutechess-src/projects/lib/src/moveevaluation.cpp'
 
     if not os.path.exists(cpp_file_1) or not os.path.exists(cpp_file_2):
         return
 
     needs_patch_1 = False
     needs_patch_2 = False
-    needs_patch_3 = False
 
     # 1. Inspect newgamedlg.cpp
     with open(cpp_file_1, 'r') as f:
@@ -74,18 +70,10 @@ def patch_cutechess_gui():
     if 'BitChess' not in content_2:
         needs_patch_2 = True
 
-    # 3. Inspect moveevaluation.cpp
-    content_3 = ""
-    if os.path.exists(cpp_file_3):
-        with open(cpp_file_3, 'r') as f:
-            content_3 = f.read()
-        if 'moves = absScore / 2;' not in content_3:
-            needs_patch_3 = True
-
-    if not needs_patch_1 and not needs_patch_2 and not needs_patch_3:
+    if not needs_patch_1 and not needs_patch_2:
         return
 
-    print("Patching Cute Chess GUI defaults (New Game & Startup Game & Score Format)...")
+    print("Patching Cute Chess GUI defaults (New Game & Startup Game)...")
 
     # Perform Patch 1
     if needs_patch_1:
@@ -177,26 +165,6 @@ def patch_cutechess_gui():
 
         with open(cpp_file_2, 'w') as f:
             f.write(content_2)
-
-    # Perform Patch 3
-    if needs_patch_3 and content_3:
-        target_eval = 'str += "M" + QString::number(absScore);'
-        replacement_eval = """int moves = absScore / 2;
-			if (moves == 0)
-			{
-				if (m_score < 0)
-					str += "-";
-				str += "Mate";
-			}
-			else
-			{
-				if (m_score < 0)
-					str += "-";
-				str += "M" + QString::number(moves);
-			}"""
-        if target_eval in content_3:
-            with open(cpp_file_3, 'w') as f:
-                f.write(content_3.replace(target_eval, replacement_eval))
 
     # Force rebuild by deleting the binary
     binary_path = 'tools/cutechess-src/build/cutechess'
