@@ -94,6 +94,7 @@ public class NegamaxBrain implements Brain {
     private Move bestPonderMove = null;
     private Move[][] pvTable;
     private int[] pvLength;
+    private String lastInfoString = "";
     private int bestScore = -INF;
     private int targetDepth = 100;
     private int totalNodes = 0;
@@ -107,6 +108,7 @@ public class NegamaxBrain implements Brain {
         this.isStable = true;
         this.bestMove = null;
         this.bestPonderMove = null;
+        this.lastInfoString = "";
         this.bestScore = -INF;
         this.totalNodes = 0;
 
@@ -198,7 +200,9 @@ public class NegamaxBrain implements Brain {
                         pvBuilder.append(" ").append(pvTable[0][i].toUciString());
                     }
                 }
-                Logger.log("info depth " + depth + " score " + scoreString + " time " + layerTime + " nodes " + totalNodes + " pv" + pvBuilder.toString());
+                String infoStr = "info depth " + depth + " score " + scoreString + " time " + layerTime + " nodes " + totalNodes + " pv" + pvBuilder.toString();
+                this.lastInfoString = infoStr;
+                Logger.log(infoStr);
             }
         }
 
@@ -213,6 +217,11 @@ public class NegamaxBrain implements Brain {
     @Override
     public Move getPonderMove() {
         return bestPonderMove;
+    }
+
+    @Override
+    public String getLastInfoString() {
+        return lastInfoString;
     }
 
     @Override

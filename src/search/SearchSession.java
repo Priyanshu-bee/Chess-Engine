@@ -136,6 +136,12 @@ public class SearchSession {
 
         Logger.log("info string [SearchSession] Ponderhit received. Disabling ponder mode. Active allocatedTimeMs: " + timeManager.getAllocatedTimeMs() + "ms");
 
+        // Immediately print the last completed search layer's info string so the GUI registers the active depth and score
+        String lastInfo = brain.getLastInfoString();
+        if (lastInfo != null && !lastInfo.isEmpty()) {
+            Logger.log(lastInfo);
+        }
+
         // Start the monitor thread now that time controls are active
         Color us = board.getSideToMove();
         int timeRemaining = (us == Color.WHITE) ? activeConstraints.wtime : activeConstraints.btime;

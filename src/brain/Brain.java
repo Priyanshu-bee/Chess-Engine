@@ -9,6 +9,7 @@ public interface Brain {
     Move think(Board board); // Active computation method
     Move getBestMove(); // Returns the best move found from the last completed layer
     default Move getPonderMove() { return null; }
+    default String getLastInfoString() { return null; }
     SearchProgress getProgress();
     void stop();
 }
