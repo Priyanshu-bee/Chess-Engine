@@ -35,7 +35,6 @@ def configure_engine():
             engine['command'] = new_engine['command']
             engine['workingDirectory'] = new_engine['workingDirectory']
             engine['ponder'] = True
-            engine.pop('whitepov', None)
             exists = True
             break
 
