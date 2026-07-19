@@ -110,8 +110,7 @@ To ensure engine safety, all implementation updates are checked against a dual v
 * **Zobrist Hashing & Repetition Detection**: Verified. State histories, clones, and unmake functions correctly calculate hashes without drift across 150+ moves.
 * **Dynamic Time Management**: Verified. The time manager correctly extends budgets under evaluation volatility/layer finishes, and stops immediately when stable.
 * **UCI Checkmate Formatting**: Verified. Engine outputs `score mate <N>` properly, and Cute Chess renders the remaining move count correctly.
-
-### 2. Partially Verified Features (Pondering)
-* **Ponder Handshake**: Verified. The handshake successfully announces the `Ponder` option type.
-* **Ponder Execution & Cancel**: Verified via automated test suite. The engine correctly processes `go ponder`, transitions on `ponderhit`, and terminates on `stop`.
-* **In-Game Match Verification**: **Pending**. Pondering transitions have not yet been verified inside an interactive real game.
+* **Pondering & Transitions**: Verified. Interactive real-game matches and log analysis confirmed that:
+  * The engine successfully suggests predicted opponent moves using PV tracking (`bestmove <best> ponder <ponder>`).
+  * The GUI correctly invokes pondering on the opponent's turn (`go ponder`) and transitions via `ponderhit` or aborts via `stop` when misses occur.
+  * Search statistics (depth/eval) are re-logged immediately on `ponderhit` so the GUI correctly displays depth/evaluation.
