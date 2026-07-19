@@ -1,9 +1,11 @@
 package brain;
 
 import core.*;
+import search.SearchProgress;
+import search.Logger;
 import java.util.*;
 
-public class Search {
+public class NegamaxBrain implements Brain {
     private static final int INF = 1000000;
     
     // Piece values for evaluation
@@ -81,18 +83,51 @@ public class Search {
          20, 30, 10,  0,  0, 10, 30, 20
     };
 
-    public Move findBestMove(Board board, int maxDepth) {
-        Move bestMove = null;
-        int bestScore = -INF;
+    // Asynchronous progress tracking fields
+    private volatile boolean stopSearch = false;
+    private volatile int currentDepth = 0;
+    private volatile int completedMoves = 0;
+    private volatile int totalMoves = 0;
+    private volatile boolean isStable = true;
 
+    private Move bestMove = null;
+    private int bestScore = -INF;
+    private int targetDepth = 100;
+    private int totalNodes = 0;
+
+    @Override
+    public void init(Board board, long allocatedTimeMs, int targetDepth, long targetNodes, boolean isInfinite) {
+        this.stopSearch = false;
+        this.currentDepth = 0;
+        this.completedMoves = 0;
+        this.totalMoves = 0;
+        this.isStable = true;
+        this.bestMove = null;
+        this.bestScore = -INF;
+        this.totalNodes = 0;
+
+        if (targetDepth > 0) {
+            this.targetDepth = targetDepth; // Fixed depth from GUI
+        } else {
+            this.targetDepth = 100; // Search as deep as time allows
+        }
+    }
+
+    @Override
+    public Move think(Board board) {
         List<Move> moves = board.getLegalMoves();
         if (moves.isEmpty()) return null;
 
         // Sort moves so captures/attacks are searched first
         moves.sort((m1, m2) -> Integer.compare(getMoveValue(m2), getMoveValue(m1)));
+        this.totalMoves = moves.size();
 
         // Iterative Deepening
-        for (int depth = 1; depth <= maxDepth; depth++) {
+        for (int depth = 1; depth <= targetDepth; depth++) {
+            this.currentDepth = depth;
+            this.completedMoves = 0;
+            long layerStart = System.currentTimeMillis();
+
             int alpha = -INF;
             int beta = INF;
             Move currentBestMove = null;
@@ -100,7 +135,7 @@ public class Search {
 
             for (Move move : moves) {
                 board.makeMove(move);
-                int score = -negamax(board, depth - 1, -beta, -alpha);
+                int score = -negamax(board, depth - 1, 1, -beta, -alpha);
                 board.unmakeMove(move);
 
                 if (score > currentBestScore) {
@@ -110,18 +145,57 @@ public class Search {
                 if (score > alpha) {
                     alpha = score;
                 }
+                this.completedMoves++;
             }
             
             if (currentBestMove != null) {
+                // Determine move stability
+                if (bestMove != null && !currentBestMove.toUciString().equals(bestMove.toUciString())) {
+                    this.isStable = false;
+                } else {
+                    this.isStable = true;
+                }
                 bestMove = currentBestMove;
                 bestScore = currentBestScore;
+
+                long layerTime = System.currentTimeMillis() - layerStart;
+                String scoreString;
+                if (Math.abs(bestScore) > 900000) {
+                    int plies = INF - Math.abs(bestScore);
+                    int mateMoves = (plies + 1) / 2;
+                    scoreString = "mate " + (bestScore > 0 ? mateMoves : -mateMoves);
+                } else {
+                    scoreString = "cp " + bestScore;
+                }
+                Logger.log("info depth " + depth + " score " + scoreString + " time " + layerTime + " nodes " + totalNodes);
             }
         }
 
         return bestMove;
     }
 
-    private int negamax(Board board, int depth, int alpha, int beta) {
+    @Override
+    public Move getBestMove() {
+        return bestMove;
+    }
+
+    @Override
+    public SearchProgress getProgress() {
+        double percent = (totalMoves > 0) ? ((double) completedMoves / totalMoves) : 0.0;
+        return new SearchProgress(currentDepth, percent, isStable, bestScore, bestMove);
+    }
+
+    @Override
+    public void stop() {
+        this.stopSearch = true;
+    }
+
+    public boolean isStopped() {
+        return stopSearch;
+    }
+
+    private int negamax(Board board, int depth, int ply, int alpha, int beta) {
+        totalNodes++;
         if (board.isDraw()) return 0;
         if (depth == 0) return quiescence(board, alpha, beta);
 
@@ -136,7 +210,7 @@ public class Search {
                 continue;
             }
             legalCount++;
-            int score = -negamax(board, depth - 1, -beta, -alpha);
+            int score = -negamax(board, depth - 1, ply + 1, -beta, -alpha);
             board.unmakeMove(move);
 
             if (score >= beta) {
@@ -149,7 +223,7 @@ public class Search {
 
         if (legalCount == 0) {
             if (board.isKingInCheck(board.getSideToMove())) {
-                return -INF + depth; // Checkmate
+                return -INF + ply; // Checkmate (reward shortest mate)
             }
             return 0; // Stalemate
         }
@@ -158,6 +232,7 @@ public class Search {
     }
 
     private int quiescence(Board board, int alpha, int beta) {
+        totalNodes++;
         int standPat = evaluate(board);
         if (standPat >= beta) return beta;
         if (standPat > alpha) alpha = standPat;

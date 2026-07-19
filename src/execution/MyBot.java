@@ -2,14 +2,18 @@ package execution;
 
 import core.*;
 import brain.*;
+import search.*;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
 
 public class MyBot {
     private final Board board = new Board();
+    private final Brain brain = new NegamaxBrain(); // Persistent brain instance
+    private SearchSession activeSession = null;
 
     public static void main(String[] args) {
+        Logger.clear();
         MyBot bot = new MyBot();
         bot.startUciLoop();
     }
@@ -21,21 +25,40 @@ public class MyBot {
                 if (line.equals("uci")) {
                     System.out.println("id name BitChess");
                     System.out.println("id author ArtificialMagic");
+                    System.out.println("option name Ponder type check default false");
                     System.out.println("uciok");
                     System.out.flush();
                 } else if (line.equals("isready")) {
                     System.out.println("readyok");
                     System.out.flush();
                 } else if (line.startsWith("position")) {
+                    stopSearchSession();
                     parsePosition(line);
                 } else if (line.startsWith("go")) {
                     parseGo(line);
+                } else if (line.equals("stop")) {
+                    if (activeSession != null) {
+                        activeSession.stop();
+                    }
+                } else if (line.equals("ponderhit")) {
+                    if (activeSession != null) {
+                        activeSession.ponderHit();
+                    }
                 } else if (line.equals("quit")) {
+                    stopSearchSession();
                     break;
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private synchronized void stopSearchSession() {
+        if (activeSession != null) {
+            activeSession.stop();
+            activeSession.join();
+            activeSession = null;
         }
     }
 
@@ -85,19 +108,41 @@ public class MyBot {
     }
 
     private void parseGo(String line) {
-        int depth = 5; // Default depth
+        stopSearchSession();
+
+        SearchConstraints constraints = new SearchConstraints();
         String[] parts = line.split("\\s+");
         for (int i = 1; i < parts.length; i++) {
             if (parts[i].equals("depth") && i + 1 < parts.length) {
-                depth = Integer.parseInt(parts[i + 1]);
+                constraints.depth = Integer.parseInt(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("nodes") && i + 1 < parts.length) {
+                constraints.nodes = Long.parseLong(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("wtime") && i + 1 < parts.length) {
+                constraints.wtime = Integer.parseInt(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("btime") && i + 1 < parts.length) {
+                constraints.btime = Integer.parseInt(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("winc") && i + 1 < parts.length) {
+                constraints.winc = Integer.parseInt(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("binc") && i + 1 < parts.length) {
+                constraints.binc = Integer.parseInt(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("movestogo") && i + 1 < parts.length) {
+                constraints.movestogo = Integer.parseInt(parts[i + 1]);
+                i++;
+            } else if (parts[i].equals("ponder")) {
+                constraints.ponder = true;
+            } else if (parts[i].equals("infinite")) {
+                constraints.infinite = true;
             }
         }
 
-        Search searcher = new Search();
-        Move best = searcher.findBestMove(board, depth);
-        if (best != null) {
-            System.out.println("bestmove " + best.toUciString());
-            System.out.flush();
-        }
+        // Reuse the persistent brain instance
+        activeSession = new SearchSession(board, constraints, brain);
+        activeSession.start();
     }
 }

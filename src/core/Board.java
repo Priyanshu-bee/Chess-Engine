@@ -18,16 +18,45 @@ public class Board {
     private int halfmoveClock;
 
     private final Stack<BoardState> stateHistory = new Stack<>();
+    private BoardListener listener = null;
+    private long zobristHash;
+
+    private static final long[][] PIECE_KEYS = new long[12][64];
+    private static final long[] CASTLING_KEYS = new long[16];
+    private static final long[] EP_KEYS = new long[9];
+    private static final long SIDE_KEY;
+
+    static {
+        Random rand = new Random(982451653L); // Deterministic seed
+        for (int p = 0; p < 12; p++) {
+            for (int sq = 0; sq < 64; sq++) {
+                PIECE_KEYS[p][sq] = rand.nextLong();
+            }
+        }
+        for (int c = 0; c < 16; c++) {
+            CASTLING_KEYS[c] = rand.nextLong();
+        }
+        for (int ep = 0; ep < 9; ep++) {
+            EP_KEYS[ep] = rand.nextLong();
+        }
+        SIDE_KEY = rand.nextLong();
+    }
+
+    public void setListener(BoardListener listener) {
+        this.listener = listener;
+    }
 
     private static class BoardState {
         final int castlingRights;
         final Square enPassantSquare;
         final int halfmoveClock;
+        final long zobristHash;
 
-        BoardState(int castlingRights, Square enPassantSquare, int halfmoveClock) {
+        BoardState(int castlingRights, Square enPassantSquare, int halfmoveClock, long zobristHash) {
             this.castlingRights = castlingRights;
             this.enPassantSquare = enPassantSquare;
             this.halfmoveClock = halfmoveClock;
+            this.zobristHash = zobristHash;
         }
     }
 
@@ -97,6 +126,34 @@ public class Board {
         halfmoveClock = parts.length > 4 ? Integer.parseInt(parts[4]) : 0;
 
         updateOccupancies();
+        this.zobristHash = calculateZobristHash();
+    }
+
+    public long getZobristHash() {
+        return zobristHash;
+    }
+
+    private long calculateZobristHash() {
+        long hash = 0L;
+        // 1. Piece placements
+        for (int p = 0; p < 12; p++) {
+            long bb = bitboards[p];
+            while (bb != 0) {
+                int sq = Long.numberOfTrailingZeros(bb);
+                hash ^= PIECE_KEYS[p][sq];
+                bb &= bb - 1;
+            }
+        }
+        // 2. Side to move
+        if (sideToMove == Color.BLACK) {
+            hash ^= SIDE_KEY;
+        }
+        // 3. Castling rights
+        hash ^= CASTLING_KEYS[castlingRights];
+        // 4. En-passant target file
+        int epIdx = (enPassantSquare != null) ? enPassantSquare.getFile() : 8;
+        hash ^= EP_KEYS[epIdx];
+        return hash;
     }
 
     public Color getSideToMove() {
@@ -405,17 +462,26 @@ public class Board {
     }
 
     public void makeMove(Move move) {
+        if (listener != null) {
+            listener.onMakeMove();
+        }
         Color us = sideToMove;
         Color them = us.opposite();
 
         // 1. Record current state
-        stateHistory.push(new BoardState(castlingRights, enPassantSquare, halfmoveClock));
+        stateHistory.push(new BoardState(castlingRights, enPassantSquare, halfmoveClock, zobristHash));
 
         // Get square indices
         int fromIdx = move.getFrom().getIndex();
         int toIdx = move.getTo().getIndex();
         long fromBit = 1L << fromIdx;
         long toBit = 1L << toIdx;
+
+        // XOR out old EP, old Castling Rights, and Side to Move
+        int oldEpIdx = (enPassantSquare != null) ? enPassantSquare.getFile() : 8;
+        zobristHash ^= EP_KEYS[oldEpIdx];
+        zobristHash ^= CASTLING_KEYS[castlingRights];
+        zobristHash ^= SIDE_KEY;
 
         // Reset ep square by default
         enPassantSquare = null;
@@ -425,18 +491,26 @@ public class Board {
         PieceType placementPiece = move.getPromotion() != null ? move.getPromotion() : movingPiece;
 
         // 2. Remove moving piece from 'from' square
-        bitboards[getBbIndex(movingPiece, us)] &= ~fromBit;
+        int movingPieceIdx = getBbIndex(movingPiece, us);
+        bitboards[movingPieceIdx] &= ~fromBit;
+        zobristHash ^= PIECE_KEYS[movingPieceIdx][fromIdx];
 
         // 3. Place piece on 'to' square
-        bitboards[getBbIndex(placementPiece, us)] |= toBit;
+        int placementPieceIdx = getBbIndex(placementPiece, us);
+        bitboards[placementPieceIdx] |= toBit;
+        zobristHash ^= PIECE_KEYS[placementPieceIdx][toIdx];
 
         // 4. Handle captures
         if (move.isCapture()) {
             if (move.isEnPassant()) {
                 int epCapIdx = toIdx + (us == Color.WHITE ? -8 : 8);
-                bitboards[getBbIndex(PieceType.PAWN, them)] &= ~(1L << epCapIdx);
+                int pawnIdx = getBbIndex(PieceType.PAWN, them);
+                bitboards[pawnIdx] &= ~(1L << epCapIdx);
+                zobristHash ^= PIECE_KEYS[pawnIdx][epCapIdx];
             } else {
-                bitboards[getBbIndex(move.getCaptured(), them)] &= ~toBit;
+                int capIdx = getBbIndex(move.getCaptured(), them);
+                bitboards[capIdx] &= ~toBit;
+                zobristHash ^= PIECE_KEYS[capIdx][toIdx];
             }
             halfmoveClock = 0; // reset on capture
         } else if (movingPiece == PieceType.PAWN) {
@@ -453,21 +527,26 @@ public class Board {
 
         // 6. Handle Castling (rook moves)
         if (move.isCastling()) {
+            int rookIdx = getBbIndex(PieceType.ROOK, us);
             if (us == Color.WHITE) {
                 if (toIdx == Square.G1.getIndex()) { // Kingside
-                    bitboards[getBbIndex(PieceType.ROOK, Color.WHITE)] &= ~(1L << Square.H1.getIndex());
-                    bitboards[getBbIndex(PieceType.ROOK, Color.WHITE)] |= (1L << Square.F1.getIndex());
+                    bitboards[rookIdx] &= ~(1L << Square.H1.getIndex());
+                    bitboards[rookIdx] |= (1L << Square.F1.getIndex());
+                    zobristHash ^= PIECE_KEYS[rookIdx][Square.H1.getIndex()] ^ PIECE_KEYS[rookIdx][Square.F1.getIndex()];
                 } else if (toIdx == Square.C1.getIndex()) { // Queenside
-                    bitboards[getBbIndex(PieceType.ROOK, Color.WHITE)] &= ~(1L << Square.A1.getIndex());
-                    bitboards[getBbIndex(PieceType.ROOK, Color.WHITE)] |= (1L << Square.D1.getIndex());
+                    bitboards[rookIdx] &= ~(1L << Square.A1.getIndex());
+                    bitboards[rookIdx] |= (1L << Square.D1.getIndex());
+                    zobristHash ^= PIECE_KEYS[rookIdx][Square.A1.getIndex()] ^ PIECE_KEYS[rookIdx][Square.D1.getIndex()];
                 }
             } else {
                 if (toIdx == Square.G8.getIndex()) { // Kingside
-                    bitboards[getBbIndex(PieceType.ROOK, Color.BLACK)] &= ~(1L << Square.H8.getIndex());
-                    bitboards[getBbIndex(PieceType.ROOK, Color.BLACK)] |= (1L << Square.F8.getIndex());
+                    bitboards[rookIdx] &= ~(1L << Square.H8.getIndex());
+                    bitboards[rookIdx] |= (1L << Square.F8.getIndex());
+                    zobristHash ^= PIECE_KEYS[rookIdx][Square.H8.getIndex()] ^ PIECE_KEYS[rookIdx][Square.F8.getIndex()];
                 } else if (toIdx == Square.C8.getIndex()) { // Queenside
-                    bitboards[getBbIndex(PieceType.ROOK, Color.BLACK)] &= ~(1L << Square.A8.getIndex());
-                    bitboards[getBbIndex(PieceType.ROOK, Color.BLACK)] |= (1L << Square.D8.getIndex());
+                    bitboards[rookIdx] &= ~(1L << Square.A8.getIndex());
+                    bitboards[rookIdx] |= (1L << Square.D8.getIndex());
+                    zobristHash ^= PIECE_KEYS[rookIdx][Square.A8.getIndex()] ^ PIECE_KEYS[rookIdx][Square.D8.getIndex()];
                 }
             }
         }
@@ -475,6 +554,11 @@ public class Board {
         // 7. Update Castling Rights
         castlingRights &= CASTLING_LOOKUP[fromIdx];
         castlingRights &= CASTLING_LOOKUP[toIdx];
+
+        // XOR in new EP and new Castling Rights
+        int newEpIdx = (enPassantSquare != null) ? enPassantSquare.getFile() : 8;
+        zobristHash ^= EP_KEYS[newEpIdx];
+        zobristHash ^= CASTLING_KEYS[castlingRights];
 
         // Swap turn
         sideToMove = them;
@@ -536,6 +620,7 @@ public class Board {
         this.castlingRights = state.castlingRights;
         this.enPassantSquare = state.enPassantSquare;
         this.halfmoveClock = state.halfmoveClock;
+        this.zobristHash = state.zobristHash; // Pop previous hash instantly!
 
         // Swap turn back
         sideToMove = us;
@@ -592,8 +677,23 @@ public class Board {
         return false;
     }
 
+    public boolean isRepetitionDraw() {
+        int count = 1; // Current state matches 1 time
+        int limit = Math.min(stateHistory.size(), halfmoveClock);
+        for (int i = 0; i < limit; i++) {
+            BoardState state = stateHistory.get(stateHistory.size() - 1 - i);
+            if (state.zobristHash == this.zobristHash) {
+                count++;
+                if (count >= 3) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public boolean isDraw() {
-        return isStalemate() || isDrawByInsufficientMaterial() || halfmoveClock >= 100;
+        return isStalemate() || isDrawByInsufficientMaterial() || halfmoveClock >= 100 || isRepetitionDraw();
     }
 
     @Override
@@ -620,5 +720,23 @@ public class Board {
         sb.append("     a b c d e f g h\n");
         sb.append("Turn: ").append(sideToMove).append("\n");
         return sb.toString();
+    }
+
+    public Board copy() {
+        Board next = new Board();
+        System.arraycopy(this.bitboards, 0, next.bitboards, 0, 12);
+        next.whiteOccupancy = this.whiteOccupancy;
+        next.blackOccupancy = this.blackOccupancy;
+        next.totalOccupancy = this.totalOccupancy;
+        next.sideToMove = this.sideToMove;
+        next.castlingRights = this.castlingRights;
+        next.enPassantSquare = this.enPassantSquare;
+        next.halfmoveClock = this.halfmoveClock;
+        next.zobristHash = this.zobristHash;
+        next.stateHistory.clear();
+        for (BoardState bs : this.stateHistory) {
+            next.stateHistory.push(new BoardState(bs.castlingRights, bs.enPassantSquare, bs.halfmoveClock, bs.zobristHash));
+        }
+        return next;
     }
 }

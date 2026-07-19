@@ -8,4 +8,4 @@ else
     JAVA_CMD="java"
 fi
 
-exec "$JAVA_CMD" -cp "$SCRIPT_DIR" execution.MyBot "$@"
+exec "$JAVA_CMD" -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -cp "$SCRIPT_DIR" execution.MyBot "$@"

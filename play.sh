@@ -82,7 +82,7 @@ else
     JAVAC_CMD="javac"
 fi
 
-$JAVAC_CMD -d bin src/core/*.java src/brain/*.java src/execution/*.java
+$JAVAC_CMD -d bin src/core/*.java src/brain/*.java src/time/*.java src/search/*.java src/execution/*.java
 
 if [ $? -ne 0 ]; then
     echo "Compilation failed! Cannot launch Cute Chess."

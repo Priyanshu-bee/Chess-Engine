@@ -2,4 +2,4 @@ bin/**/*.class
 *.class
 .DS_Store
 tools/cutechess-src/build/
-
+engine.log
