@@ -79,7 +79,7 @@ def patch_cutechess_gui():
     if os.path.exists(cpp_file_3):
         with open(cpp_file_3, 'r') as f:
             content_3 = f.read()
-        if 'str += "M" + QString::number((absScore + 1) / 2);' not in content_3:
+        if 'moves = absScore / 2;' not in content_3:
             needs_patch_3 = True
 
     if not needs_patch_1 and not needs_patch_2 and not needs_patch_3:
@@ -181,7 +181,19 @@ def patch_cutechess_gui():
     # Perform Patch 3
     if needs_patch_3 and content_3:
         target_eval = 'str += "M" + QString::number(absScore);'
-        replacement_eval = 'str += "M" + QString::number((absScore + 1) / 2);'
+        replacement_eval = """int moves = absScore / 2;
+			if (moves == 0)
+			{
+				if (m_score < 0)
+					str += "-";
+				str += "Mate";
+			}
+			else
+			{
+				if (m_score < 0)
+					str += "-";
+				str += "M" + QString::number(moves);
+			}"""
         if target_eval in content_3:
             with open(cpp_file_3, 'w') as f:
                 f.write(content_3.replace(target_eval, replacement_eval))
